@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Ad Link Generator</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Rewarded interstitial SDK from Monetag -->
+  <script src="https://libtl.com/sdk.js" data-zone="11551467" data-sdk="show_11551467"></script>
+
+  <!--
+    Optional banner/native/banner-like Monetag tag:
+    Paste only the official banner tag Monetag gives you. Leave this empty if Monetag did not give you
+    a banner-compatible tag for Telegram Mini Apps.
+  -->
+</head>
+<body>
+  <main class="app-shell">
+    <section id="generatorView" class="panel" hidden>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">AD</div>
+        <div>
+          <h1>Ad Link Generator</h1>
+          <p>Create your Telegram ad link</p>
+        </div>
+      </div>
+
+      <form id="generatorForm" class="stack">
+        <label class="field">
+          <span>Original URL</span>
+          <input id="urlInput" type="url" inputmode="url" placeholder="https://example.com" autocomplete="url">
+        </label>
+
+        <button id="generateButton" class="primary-button" type="submit">Generate Link</button>
+      </form>
+
+      <div class="stack">
+        <label class="field">
+          <span>Generated Link</span>
+          <textarea id="generatedLink" rows="4" readonly placeholder="Your generated Telegram link will appear here"></textarea>
+        </label>
+
+        <button id="copyButton" class="secondary-button" type="button" disabled>Copy</button>
+      </div>
+
+      <p id="generatorMessage" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="visitorView" class="panel compact" hidden>
+      <div class="brand centered">
+        <div class="logo" aria-hidden="true">GO</div>
+        <div>
+          <h1 id="visitorTitle">Preparing your content...</h1>
+          <p id="visitorSubtitle">Advertisement loading...</p>
+        </div>
+      </div>
+
+      <button id="retryAdButton" class="primary-button" type="button" hidden>Try Again</button>
+      <p id="visitorMessage" class="message" role="status" aria-live="polite"></p>
+
+      <div id="bannerAdSlot" class="banner-ad-slot" aria-label="Advertisement">
+        <!-- Optional banner ad code can be placed here if Monetag provides a banner-compatible tag. -->
+      </div>
+    </section>
+
+    <section id="invalidView" class="panel compact" hidden>
+      <div class="brand centered">
+        <div class="logo warning" aria-hidden="true">!</div>
+        <div>
+          <h1>Invalid Link</h1>
+          <p>This link is invalid or expired.</p>
+        </div>
+      </div>
+
+      <p id="invalidMessage" class="message error">Please ask the sender to create a new link.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
