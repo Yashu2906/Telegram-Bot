@@ -8,6 +8,15 @@ const CONFIG = {
   monetagEnabled: true,
   monetagSdkFunctionName: "show_11551467",
   interstitialAdCount: 2,
+  requestVarPrefix: "ad_link",
+  inAppInterstitialEnabled: true,
+  inAppInterstitialSettings: {
+    frequency: 1,
+    capping: 1,
+    interval: 120,
+    timeout: 8,
+    everyPage: false,
+  },
 };
 
 const STORAGE_KEYS = {
@@ -148,6 +157,7 @@ async function handleVisitorStartParam(startParam) {
   }
 
   showView("visitor");
+  startInAppInterstitial();
   await showMonetagAdAndRedirect();
 }
 
@@ -206,7 +216,12 @@ async function showMonetagAdAndRedirect() {
 
     for (let adNumber = 1; adNumber <= CONFIG.interstitialAdCount; adNumber += 1) {
       elements.visitorSubtitle.textContent = `Advertisement ${adNumber} of ${CONFIG.interstitialAdCount} loading...`;
-      await showAd();
+      await showAd({
+        type: "end",
+        ymid: createAdEventId(adNumber),
+        requestVar: `${CONFIG.requestVarPrefix}_${adNumber}`,
+        catchIfNoFeed: true,
+      });
     }
 
     setVisitorState("completed");
@@ -229,6 +244,26 @@ async function showMonetagAdAndRedirect() {
       "error",
     );
   }
+}
+
+function startInAppInterstitial() {
+  if (!CONFIG.monetagEnabled || !CONFIG.inAppInterstitialEnabled) {
+    return;
+  }
+
+  const showAd = getMonetagAdFunction();
+
+  if (!showAd) {
+    return;
+  }
+
+  showAd({
+    type: "inApp",
+    requestVar: `${CONFIG.requestVarPrefix}_in_app`,
+    inAppSettings: CONFIG.inAppInterstitialSettings,
+  }).catch(() => {
+    // Keep the link flow working even if the optional in-app ad is unavailable.
+  });
 }
 
 function getStartParam() {
@@ -270,6 +305,14 @@ function getMonetagAdFunction() {
 
   const sdkFunction = window[CONFIG.monetagSdkFunctionName];
   return typeof sdkFunction === "function" ? sdkFunction : null;
+}
+
+function createAdEventId(adNumber) {
+  const destination = sessionStorage.getItem(STORAGE_KEYS.destination) || "";
+  const encodedDestination = encodeUrlSafeBase64(destination).slice(0, 18);
+  const randomValue = Math.random().toString(36).slice(2, 10);
+
+  return `${CONFIG.requestVarPrefix}_${adNumber}_${encodedDestination}_${Date.now()}_${randomValue}`;
 }
 
 function validateHttpUrl(value) {

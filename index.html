@@ -12,9 +12,9 @@
   <script src="https://libtl.com/sdk.js" data-zone="11551467" data-sdk="show_11551467"></script>
 
   <!--
-    Optional banner/native/banner-like Monetag tag:
-    Paste only the official banner tag Monetag gives you. Leave this empty if Monetag did not give you
-    a banner-compatible tag for Telegram Mini Apps.
+    Monetag Telegram Mini Apps SDK supports Rewarded Interstitial, Rewarded Popup, and In-App Interstitial.
+    A normal inline banner is not created by this empty page; use CONFIG.inAppInterstitialEnabled in app.js
+    if your Monetag account supports the official In-App Interstitial format.
   -->
 </head>
 <body>
@@ -61,9 +61,7 @@
       <button id="retryAdButton" class="primary-button" type="button" hidden>Try Again</button>
       <p id="visitorMessage" class="message" role="status" aria-live="polite"></p>
 
-      <div id="bannerAdSlot" class="banner-ad-slot" aria-label="Advertisement">
-        <!-- Optional banner ad code can be placed here if Monetag provides a banner-compatible tag. -->
-      </div>
+      <div class="ad-note" aria-hidden="true"></div>
     </section>
 
     <section id="invalidView" class="panel compact" hidden>

@@ -68,7 +68,9 @@ const CONFIG = {
   botUsername: "YOUR_BOT_USERNAME",
   monetagEnabled: false,
   monetagSdkFunctionName: "YOUR_MONETAG_FUNCTION",
-  interstitialAdCount: 2
+  interstitialAdCount: 2,
+  requestVarPrefix: "ad_link",
+  inAppInterstitialEnabled: true
 };
 ```
 
@@ -145,7 +147,9 @@ const CONFIG = {
   botUsername: "MyAdLinkBot",
   monetagEnabled: true,
   monetagSdkFunctionName: "show_123456",
-  interstitialAdCount: 2
+  interstitialAdCount: 2,
+  requestVarPrefix: "ad_link",
+  inAppInterstitialEnabled: true
 };
 ```
 
@@ -153,19 +157,32 @@ Use your real function name from Monetag. Do not use `show_123456` unless Moneta
 
 ## Monetag SDK Integration
 
-The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it calls the official Monetag function twice before redirecting:
+The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it calls the official Monetag function twice before redirecting. Each call gets a unique `ymid` and `requestVar`:
 
 ```js
-await showAd();
+await showAd({
+  type: "end",
+  ymid: "unique-event-id",
+  requestVar: "ad_link_1",
+  catchIfNoFeed: true
+});
 ```
 
 The redirect happens only after this Promise resolves. If the SDK is missing, disabled, unavailable, skipped, or rejected, the user stays inside the Mini App and sees an error.
 
 There is no fake ad, countdown, repeated refresh, automatic click, or simulated ad completion. If the ad fails, the app shows a legitimate retry button that calls the real Monetag SDK again.
 
-## Optional Banner Placement
+## Optional In-App Interstitial
 
-`index.html` includes an empty `bannerAdSlot` inside the visitor screen. Paste only an official banner-compatible Monetag tag there if Monetag gives you one for this Mini App. Leave it empty otherwise.
+Monetag's Telegram Mini Apps SDK documents Rewarded Interstitial, Rewarded Popup, and In-App Interstitial formats. It does not create a normal inline HTML banner from an empty `<div>`.
+
+If your Monetag account supports In-App Interstitial and you want to enable that official format, set:
+
+```js
+inAppInterstitialEnabled: true
+```
+
+Set it to `false` if you only want the two rewarded interstitial ads before redirecting.
 
 ## Testing
 

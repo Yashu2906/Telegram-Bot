@@ -190,14 +190,14 @@ button:disabled {
   color: var(--danger-color);
 }
 
-.banner-ad-slot {
+.ad-note {
   width: 100%;
   min-height: 0;
   margin-top: 1rem;
   overflow: hidden;
 }
 
-.banner-ad-slot:empty {
+.ad-note:empty {
   display: none;
 }
 
