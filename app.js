@@ -7,9 +7,9 @@ const CONFIG = {
   botUsername: "MyAd_Link_Bot",
   monetagEnabled: true,
   monetagSdkFunctionName: "show_11551467",
-  interstitialAdCount: 2,
+  interstitialAdCount: 1,
   requestVarPrefix: "ad_link",
-  inAppInterstitialEnabled: true,
+  inAppInterstitialEnabled: false,
   inAppInterstitialSettings: {
     frequency: 1,
     capping: 1,
@@ -105,7 +105,7 @@ function handleGenerateLink(event) {
   }
 
   const encodedDestination = encodeUrlSafeBase64(validation.url);
-  const generatedUrl = `https://t.me/${CONFIG.botUsername}?startapp=${encodedDestination}`;
+  const generatedUrl = createTelegramLink(encodedDestination);
 
   elements.generatedLink.value = generatedUrl;
   elements.copyButton.disabled = false;
@@ -215,7 +215,10 @@ async function showMonetagAdAndRedirect() {
     elements.retryAdButton.hidden = true;
 
     for (let adNumber = 1; adNumber <= CONFIG.interstitialAdCount; adNumber += 1) {
-      elements.visitorSubtitle.textContent = `Advertisement ${adNumber} of ${CONFIG.interstitialAdCount} loading...`;
+      elements.visitorSubtitle.textContent =
+        CONFIG.interstitialAdCount > 1
+          ? `Advertisement ${adNumber} of ${CONFIG.interstitialAdCount} loading...`
+          : "Advertisement loading...";
       await showAd({
         type: "end",
         ymid: createAdEventId(adNumber),
@@ -277,7 +280,34 @@ function getStartParam() {
 
   const params = new URLSearchParams(window.location.search);
   const fallbackKeys = ["tgWebAppStartParam", "startapp", "start_param"];
+  const queryStartParam = getStartParamFromParams(params, fallbackKeys);
 
+  if (queryStartParam) {
+    return queryStartParam;
+  }
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const hashStartParam = getStartParamFromParams(hashParams, fallbackKeys);
+
+  if (hashStartParam) {
+    return hashStartParam;
+  }
+
+  const encodedHashData = hashParams.get("tgWebAppData");
+
+  if (encodedHashData) {
+    const initDataParams = new URLSearchParams(encodedHashData);
+    const initDataStartParam = initDataParams.get("start_param");
+
+    if (initDataStartParam && initDataStartParam.trim()) {
+      return initDataStartParam.trim();
+    }
+  }
+
+  return "";
+}
+
+function getStartParamFromParams(params, fallbackKeys) {
   for (const key of fallbackKeys) {
     const value = params.get(key);
 
@@ -360,6 +390,10 @@ function decodeUrlSafeBase64(value) {
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
 
   return new TextDecoder().decode(bytes);
+}
+
+function createTelegramLink(encodedDestination) {
+  return `https://t.me/${CONFIG.botUsername}?startapp=${encodedDestination}`;
 }
 
 async function copyText(value) {

@@ -68,9 +68,9 @@ const CONFIG = {
   botUsername: "YOUR_BOT_USERNAME",
   monetagEnabled: false,
   monetagSdkFunctionName: "YOUR_MONETAG_FUNCTION",
-  interstitialAdCount: 2,
+  interstitialAdCount: 1,
   requestVarPrefix: "ad_link",
-  inAppInterstitialEnabled: true
+  inAppInterstitialEnabled: false
 };
 ```
 
@@ -147,9 +147,9 @@ const CONFIG = {
   botUsername: "MyAdLinkBot",
   monetagEnabled: true,
   monetagSdkFunctionName: "show_123456",
-  interstitialAdCount: 2,
+  interstitialAdCount: 1,
   requestVarPrefix: "ad_link",
-  inAppInterstitialEnabled: true
+  inAppInterstitialEnabled: false
 };
 ```
 
@@ -157,7 +157,7 @@ Use your real function name from Monetag. Do not use `show_123456` unless Moneta
 
 ## Monetag SDK Integration
 
-The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it calls the official Monetag function twice before redirecting. Each call gets a unique `ymid` and `requestVar`:
+The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 1` means it calls the official Monetag function once before redirecting. The call gets a unique `ymid` and `requestVar`:
 
 ```js
 await showAd({
@@ -182,7 +182,7 @@ If your Monetag account supports In-App Interstitial and you want to enable that
 inAppInterstitialEnabled: true
 ```
 
-Set it to `false` if you only want the two rewarded interstitial ads before redirecting.
+Keep it `false` for the simplest flow: one rewarded interstitial ad, then redirect.
 
 ## Testing
 
