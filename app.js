@@ -7,7 +7,7 @@ const CONFIG = {
   botUsername: "MyAd_Link_Bot",
   monetagEnabled: true,
   monetagSdkFunctionName: "show_11551467",
-  interstitialAdCount: 1,
+  interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
   inAppInterstitialEnabled: false,
   inAppInterstitialSettings: {
@@ -223,7 +223,6 @@ async function showMonetagAdAndRedirect() {
         type: "end",
         ymid: createAdEventId(adNumber),
         requestVar: `${CONFIG.requestVarPrefix}_${adNumber}`,
-        catchIfNoFeed: true,
       });
     }
 

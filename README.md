@@ -68,7 +68,7 @@ const CONFIG = {
   botUsername: "YOUR_BOT_USERNAME",
   monetagEnabled: false,
   monetagSdkFunctionName: "YOUR_MONETAG_FUNCTION",
-  interstitialAdCount: 1,
+  interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
   inAppInterstitialEnabled: false
 };
@@ -147,7 +147,7 @@ const CONFIG = {
   botUsername: "MyAdLinkBot",
   monetagEnabled: true,
   monetagSdkFunctionName: "show_123456",
-  interstitialAdCount: 1,
+  interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
   inAppInterstitialEnabled: false
 };
@@ -157,18 +157,17 @@ Use your real function name from Monetag. Do not use `show_123456` unless Moneta
 
 ## Monetag SDK Integration
 
-The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 1` means it calls the official Monetag function once before redirecting. The call gets a unique `ymid` and `requestVar`:
+The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it requires two successful Monetag calls before redirecting. Each call gets a unique `ymid` and `requestVar`:
 
 ```js
 await showAd({
   type: "end",
   ymid: "unique-event-id",
-  requestVar: "ad_link_1",
-  catchIfNoFeed: true
+  requestVar: "ad_link_1"
 });
 ```
 
-The redirect happens only after this Promise resolves. If the SDK is missing, disabled, unavailable, skipped, or rejected, the user stays inside the Mini App and sees an error.
+The redirect happens only after both Promises resolve. If the SDK is missing, disabled, unavailable, skipped, has no feed, or rejects, the user stays inside the Mini App and sees an error.
 
 There is no fake ad, countdown, repeated refresh, automatic click, or simulated ad completion. If the ad fails, the app shows a legitimate retry button that calls the real Monetag SDK again.
 
@@ -182,7 +181,7 @@ If your Monetag account supports In-App Interstitial and you want to enable that
 inAppInterstitialEnabled: true
 ```
 
-Keep it `false` for the simplest flow: one rewarded interstitial ad, then redirect.
+Keep it `false` for the simplest flow: two rewarded interstitial ads, then redirect.
 
 ## Testing
 
