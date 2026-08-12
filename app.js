@@ -1,451 +1,787 @@
 "use strict";
 
-// ================================
-// APPLICATION CONFIGURATION
-// ================================
+/* =========================================================
+   CONFIGURATION
+========================================================= */
+
 const CONFIG = {
+  /*
+    Telegram bot username.
+
+    IMPORTANT:
+    Do NOT include @
+
+    Correct:
+    MyAd_Link_Bot
+
+    Incorrect:
+    @MyAd_Link_Bot
+  */
+
   botUsername: "MyAd_Link_Bot",
+
+  /*
+    Monetag
+  */
+
   monetagEnabled: true,
+
+  /*
+    This MUST match:
+
+    data-sdk="show_11551467"
+
+    in index.html
+  */
+
   monetagSdkFunctionName: "show_11551467",
-  interstitialAdCount: 2,
-  requestVarPrefix: "ad_link",
-  interstitialPreloadTimeoutSeconds: 8,
-  delayBetweenAdsMs: 800,
-  inAppInterstitialEnabled: false,
-  inAppInterstitialSettings: {
-    frequency: 1,
-    capping: 1,
-    interval: 120,
-    timeout: 8,
-    everyPage: false,
-  },
+
+  /*
+    Maximum time to wait for Monetag SDK
+    to create the show_11551467 function.
+  */
+
+  monetagSdkTimeoutMs: 15000,
 };
 
+/* =========================================================
+   STORAGE
+========================================================= */
+
 const STORAGE_KEYS = {
-  destination: "destination",
+  destination: "telegram_ad_destination",
 };
+
+/* =========================================================
+   DOM ELEMENTS
+========================================================= */
 
 const elements = {
   generatorView: document.querySelector("#generatorView"),
+
   visitorView: document.querySelector("#visitorView"),
+
   invalidView: document.querySelector("#invalidView"),
+
   generatorForm: document.querySelector("#generatorForm"),
+
   urlInput: document.querySelector("#urlInput"),
+
   generatedLink: document.querySelector("#generatedLink"),
+
   copyButton: document.querySelector("#copyButton"),
+
   generatorMessage: document.querySelector("#generatorMessage"),
+
   visitorTitle: document.querySelector("#visitorTitle"),
+
   visitorSubtitle: document.querySelector("#visitorSubtitle"),
+
   retryAdButton: document.querySelector("#retryAdButton"),
+
   visitorMessage: document.querySelector("#visitorMessage"),
+
+  invalidMessage: document.querySelector("#invalidMessage"),
 };
 
-let adSequenceRunning = false;
+/* =========================================================
+   STATE
+========================================================= */
 
-init();
+let adRunning = false;
+
+/* =========================================================
+   START APPLICATION
+========================================================= */
+
+document.addEventListener("DOMContentLoaded", init);
 
 function init() {
-  initTelegramWebApp();
+  console.log("[APP] Starting application...");
+
+  initializeTelegram();
+
   bindEvents();
 
   const startParam = getStartParam();
 
+  console.log("[APP] startParam:", startParam);
+
+  /*
+    No start parameter
+    =
+    OWNER / GENERATOR MODE
+  */
+
   if (!startParam) {
+    console.log("[APP] Generator mode");
+
     showView("generator");
+
     return;
   }
 
-  handleVisitorStartParam(startParam);
+  /*
+    start parameter exists
+    =
+    VISITOR MODE
+  */
+
+  console.log("[APP] Visitor mode");
+
+  handleVisitor(startParam);
 }
 
-function initTelegramWebApp() {
-  const webApp = getTelegramWebApp();
+/* =========================================================
+   TELEGRAM INITIALIZATION
+========================================================= */
 
-  if (!webApp) {
+function initializeTelegram() {
+  const telegram = getTelegramWebApp();
+
+  if (!telegram) {
+    console.log("[TELEGRAM] Telegram SDK not detected.");
+
     return;
   }
 
   try {
-    webApp.ready();
-    webApp.expand();
+    telegram.ready();
+
+    telegram.expand();
+
+    console.log("[TELEGRAM] WebApp initialized.");
   } catch (error) {
-    // Telegram SDK can be present but unavailable in some browser previews.
+    console.error("[TELEGRAM] Initialization error:", error);
   }
 }
 
-function bindEvents() {
-  elements.generatorForm.addEventListener("submit", handleGenerateLink);
-  elements.copyButton.addEventListener("click", handleCopyLink);
-  elements.retryAdButton.addEventListener("click", handleRetryAd);
+/* =========================================================
+   GET TELEGRAM WEB APP
+========================================================= */
+
+function getTelegramWebApp() {
+  if (window.Telegram && window.Telegram.WebApp) {
+    return window.Telegram.WebApp;
+  }
+
+  return null;
 }
+
+/* =========================================================
+   EVENTS
+========================================================= */
+
+function bindEvents() {
+  /*
+    Generator
+  */
+
+  elements.generatorForm.addEventListener("submit", handleGenerateLink);
+
+  /*
+    Copy
+  */
+
+  elements.copyButton.addEventListener("click", handleCopyLink);
+
+  /*
+    Watch ad
+  */
+
+  elements.retryAdButton.addEventListener("click", handleAdButton);
+}
+
+/* =========================================================
+   GENERATE TELEGRAM LINK
+========================================================= */
 
 function handleGenerateLink(event) {
   event.preventDefault();
-  setMessage(elements.generatorMessage, "");
+
+  clearMessage(elements.generatorMessage);
 
   const input = elements.urlInput.value.trim();
 
   if (!input) {
-    setMessage(elements.generatorMessage, "Please enter a URL.", "error");
+    showMessage(elements.generatorMessage, "Please enter a URL.", "error");
+
     return;
   }
 
   const validation = validateHttpUrl(input);
 
   if (!validation.valid) {
-    setMessage(elements.generatorMessage, validation.message, "error");
+    showMessage(elements.generatorMessage, validation.message, "error");
+
     return;
   }
 
-  if (!isConfiguredBotUsername(CONFIG.botUsername)) {
-    setMessage(
+  if (!isValidBotUsername(CONFIG.botUsername)) {
+    showMessage(
       elements.generatorMessage,
-      "Please set your Telegram bot username in app.js first.",
+      "Please configure your Telegram bot username in app.js.",
       "error",
     );
+
     return;
   }
 
-  const encodedDestination = encodeUrlSafeBase64(validation.url);
-  const generatedUrl = createTelegramLink(encodedDestination);
+  try {
+    const encodedDestination = encodeUrlSafeBase64(validation.url);
 
-  elements.generatedLink.value = generatedUrl;
-  elements.copyButton.disabled = false;
-  setMessage(
-    elements.generatorMessage,
-    "Link generated successfully.",
-    "success",
-  );
+    const telegramLink = createTelegramLink(encodedDestination);
+
+    elements.generatedLink.value = telegramLink;
+
+    elements.copyButton.disabled = false;
+
+    showMessage(
+      elements.generatorMessage,
+      "Link generated successfully.",
+      "success",
+    );
+
+    console.log("[GENERATOR] Generated link:", telegramLink);
+  } catch (error) {
+    console.error("[GENERATOR] Error:", error);
+
+    showMessage(
+      elements.generatorMessage,
+      "Could not generate the link.",
+      "error",
+    );
+  }
 }
+
+/* =========================================================
+   COPY LINK
+========================================================= */
 
 async function handleCopyLink() {
   const link = elements.generatedLink.value.trim();
 
   if (!link) {
-    setMessage(
-      elements.generatorMessage,
-      "Generate a link before copying.",
-      "error",
-    );
     return;
   }
 
   try {
     await copyText(link);
-    setMessage(elements.generatorMessage, "Link copied!", "success");
-  } catch (error) {
-    setMessage(
+
+    showMessage(
       elements.generatorMessage,
-      "Copy failed. Please select and copy the link manually.",
+      "Link copied successfully.",
+      "success",
+    );
+  } catch (error) {
+    console.error("[COPY] Error:", error);
+
+    showMessage(
+      elements.generatorMessage,
+      "Copy failed. Please copy the link manually.",
       "error",
     );
   }
 }
 
-async function handleVisitorStartParam(startParam) {
+/* =========================================================
+   VISITOR
+========================================================= */
+
+function handleVisitor(startParam) {
   try {
-    const decodedDestination = decodeUrlSafeBase64(startParam);
-    const validation = validateHttpUrl(decodedDestination);
+    /*
+      Decode destination
+    */
+
+    const destination = decodeUrlSafeBase64(startParam);
+
+    console.log("[VISITOR] Destination:", destination);
+
+    /*
+      Validate destination
+    */
+
+    const validation = validateHttpUrl(destination);
 
     if (!validation.valid) {
-      throw new Error("Unsupported destination");
+      throw new Error("Invalid destination URL");
     }
+
+    /*
+      Store destination
+    */
 
     sessionStorage.setItem(STORAGE_KEYS.destination, validation.url);
+
+    /*
+      Show visitor page
+    */
+
+    showView("visitor");
+
+    setVisitorState("ready");
+
+    console.log("[VISITOR] Destination accepted.");
   } catch (error) {
+    console.error("[VISITOR] Invalid link:", error);
+
     sessionStorage.removeItem(STORAGE_KEYS.destination);
+
     showView("invalid");
+  }
+}
+
+/* =========================================================
+   MONETAG BUTTON
+========================================================= */
+
+async function handleAdButton() {
+  /*
+    Prevent double clicks
+  */
+
+  if (adRunning) {
     return;
   }
 
-  showView("visitor");
-  startInAppInterstitial();
-  await showMonetagAdAndRedirect();
-}
+  adRunning = true;
 
-async function handleRetryAd() {
-  await showMonetagAdAndRedirect();
-}
+  elements.retryAdButton.disabled = true;
 
-async function showMonetagAdAndRedirect() {
-  if (adSequenceRunning) {
-    return;
-  }
-
-  adSequenceRunning = true;
-  setMessage(elements.visitorMessage, "");
   setVisitorState("loading");
 
-  const destination = sessionStorage.getItem(STORAGE_KEYS.destination);
-  const validation = validateHttpUrl(destination || "");
-
-  if (!validation.valid) {
-    adSequenceRunning = false;
-    setMessage(
-      elements.visitorMessage,
-      "This link is invalid or expired.",
-      "error",
-    );
-    return;
-  }
-
-  if (!CONFIG.monetagEnabled) {
-    adSequenceRunning = false;
-    setVisitorState("error");
-    setMessage(
-      elements.visitorMessage,
-      "Monetag is not configured yet.",
-      "error",
-    );
-    return;
-  }
-
-  const showAd = getMonetagAdFunction();
-
-  if (!showAd) {
-    adSequenceRunning = false;
-    setVisitorState("error");
-    setMessage(
-      elements.visitorMessage,
-      "Unable to load the advertisement. Please try again.",
-      "error",
-    );
-    return;
-  }
+  clearMessage(elements.visitorMessage);
 
   try {
-    elements.retryAdButton.hidden = true;
-    elements.visitorSubtitle.textContent = "Advertisement loading...";
+    /*
+      Get destination
+    */
 
-    for (let adNumber = 1; adNumber <= CONFIG.interstitialAdCount; adNumber += 1) {
-      if (adNumber > 1) {
-        await wait(CONFIG.delayBetweenAdsMs);
-      }
+    const destination = sessionStorage.getItem(STORAGE_KEYS.destination);
 
-      await showRequiredInterstitial(showAd, adNumber);
+    const validation = validateHttpUrl(destination || "");
+
+    if (!validation.valid) {
+      throw new Error("Destination is invalid.");
     }
+
+    /*
+      Check Monetag enabled
+    */
+
+    if (!CONFIG.monetagEnabled) {
+      throw new Error("Monetag is disabled.");
+    }
+
+    /*
+      Wait for SDK
+    */
+
+    console.log("[MONETAG] Waiting for SDK...");
+
+    const showAd = await waitForMonetag();
+
+    if (!showAd) {
+      throw new Error("Monetag SDK function was not found.");
+    }
+
+    console.log("[MONETAG] SDK ready:", CONFIG.monetagSdkFunctionName);
+
+    /*
+      Unique event ID
+    */
+
+    const ymid = createYmid();
+
+    console.log("[MONETAG] Starting Rewarded Interstitial...");
+
+    console.log("[MONETAG] ymid:", ymid);
+
+    /*
+      START MONETAG AD
+
+      Monetag documentation:
+
+      show_XXX({
+        ymid: "..."
+      }).then(...)
+    */
+
+    await showAd({
+      ymid: ymid,
+
+      requestVar: "telegram_redirect",
+    });
+
+    /*
+      IMPORTANT
+
+      If Promise resolves,
+      Monetag reports that the
+      Rewarded Interstitial completed.
+    */
+
+    console.log("[MONETAG] Advertisement completed.");
 
     setVisitorState("completed");
-    setMessage(elements.visitorMessage, "Opening content...", "success");
 
-    const storedDestination = sessionStorage.getItem(STORAGE_KEYS.destination);
-    const redirectValidation = validateHttpUrl(storedDestination || "");
+    showMessage(
+      elements.visitorMessage,
+      "Advertisement completed. Opening content...",
+      "success",
+    );
 
-    if (!redirectValidation.valid) {
-      throw new Error("Stored destination is invalid");
+    /*
+      Small UI transition.
+    */
+
+    await wait(500);
+
+    /*
+      Get destination again
+    */
+
+    const finalDestination = sessionStorage.getItem(STORAGE_KEYS.destination);
+
+    const finalValidation = validateHttpUrl(finalDestination || "");
+
+    if (!finalValidation.valid) {
+      throw new Error("Destination is invalid.");
     }
 
-    window.location.href = redirectValidation.url;
+    /*
+      REDIRECT
+    */
+
+    console.log("[REDIRECT]", finalValidation.url);
+
+    window.location.replace(finalValidation.url);
   } catch (error) {
-    adSequenceRunning = false;
+    console.error("[MONETAG] Advertisement failed:", error);
+
+    adRunning = false;
+
+    elements.retryAdButton.disabled = false;
+
     setVisitorState("error");
-    setMessage(
+
+    showMessage(
       elements.visitorMessage,
-      "Unable to load the advertisement. Please try again.",
+      "Advertisement could not be loaded. Please try again.",
       "error",
     );
   }
 }
 
-async function showRequiredInterstitial(showAd, adNumber) {
-  const adOptions = {
-    type: "end",
-    ymid: createAdEventId(adNumber),
-    requestVar: `${CONFIG.requestVarPrefix}_${adNumber}`,
-    catchIfNoFeed: true,
-  };
+/* =========================================================
+   WAIT FOR MONETAG SDK
+========================================================= */
 
-  await preloadInterstitial(showAd, adOptions);
-  await showAd(adOptions);
-}
+function waitForMonetag() {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
 
-async function preloadInterstitial(showAd, adOptions) {
-  try {
-    await showAd({
-      ...adOptions,
-      type: "preload",
-      timeout: CONFIG.interstitialPreloadTimeoutSeconds,
-    });
-  } catch (error) {
-    // If preloading fails, still try the real ad call. The final redirect remains blocked unless the ad call resolves.
-  }
-}
+    const interval = window.setInterval(() => {
+      const functionName = CONFIG.monetagSdkFunctionName;
 
-function startInAppInterstitial() {
-  if (!CONFIG.monetagEnabled || !CONFIG.inAppInterstitialEnabled) {
-    return;
-  }
+      const sdkFunction = window[functionName];
 
-  const showAd = getMonetagAdFunction();
+      /*
+              SDK loaded
+            */
 
-  if (!showAd) {
-    return;
-  }
+      if (typeof sdkFunction === "function") {
+        window.clearInterval(interval);
 
-  showAd({
-    type: "inApp",
-    requestVar: `${CONFIG.requestVarPrefix}_in_app`,
-    inAppSettings: CONFIG.inAppInterstitialSettings,
-  }).catch(() => {
-    // Keep the link flow working even if the optional in-app ad is unavailable.
+        resolve(sdkFunction);
+
+        return;
+      }
+
+      /*
+              Timeout
+            */
+
+      if (Date.now() - startTime >= CONFIG.monetagSdkTimeoutMs) {
+        window.clearInterval(interval);
+
+        resolve(null);
+      }
+    }, 100);
   });
 }
 
+/* =========================================================
+   CREATE UNIQUE MONETAG EVENT ID
+========================================================= */
+
+function createYmid() {
+  const telegram = getTelegramWebApp();
+
+  let telegramUserId = "anonymous";
+
+  if (telegram && telegram.initDataUnsafe && telegram.initDataUnsafe.user) {
+    telegramUserId = String(telegram.initDataUnsafe.user.id);
+  }
+
+  const random = Math.random().toString(36).substring(2, 10);
+
+  return ["telegram", telegramUserId, Date.now(), random].join("_");
+}
+
+/* =========================================================
+   TELEGRAM START PARAMETER
+========================================================= */
+
 function getStartParam() {
-  const webApp = getTelegramWebApp();
-  const telegramStartParam =
-    webApp && webApp.initDataUnsafe && webApp.initDataUnsafe.start_param;
+  const telegram = getTelegramWebApp();
 
-  if (typeof telegramStartParam === "string" && telegramStartParam.trim()) {
-    return telegramStartParam.trim();
-  }
+  /*
+    Telegram's official
+    Mini App parameter
+  */
 
-  const params = new URLSearchParams(window.location.search);
-  const fallbackKeys = ["tgWebAppStartParam", "startapp", "start_param"];
-  const queryStartParam = getStartParamFromParams(params, fallbackKeys);
+  if (telegram && telegram.initDataUnsafe) {
+    const value = telegram.initDataUnsafe.start_param;
 
-  if (queryStartParam) {
-    return queryStartParam;
-  }
-
-  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const hashStartParam = getStartParamFromParams(hashParams, fallbackKeys);
-
-  if (hashStartParam) {
-    return hashStartParam;
-  }
-
-  const encodedHashData = hashParams.get("tgWebAppData");
-
-  if (encodedHashData) {
-    const initDataParams = new URLSearchParams(encodedHashData);
-    const initDataStartParam = initDataParams.get("start_param");
-
-    if (initDataStartParam && initDataStartParam.trim()) {
-      return initDataStartParam.trim();
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
     }
   }
 
-  return "";
-}
+  /*
+    Browser testing
+  */
 
-function getStartParamFromParams(params, fallbackKeys) {
-  for (const key of fallbackKeys) {
-    const value = params.get(key);
+  const searchParams = new URLSearchParams(window.location.search);
+
+  const searchKeys = ["tgWebAppStartParam", "startapp", "start_param"];
+
+  for (const key of searchKeys) {
+    const value = searchParams.get(key);
 
     if (value && value.trim()) {
       return value.trim();
     }
   }
 
+  /*
+    Hash fallback
+  */
+
+  const hash = window.location.hash.replace(/^#/, "");
+
+  if (hash) {
+    const hashParams = new URLSearchParams(hash);
+
+    for (const key of searchKeys) {
+      const value = hashParams.get(key);
+
+      if (value && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
   return "";
 }
 
-function getTelegramWebApp() {
-  return window.Telegram && window.Telegram.WebApp
-    ? window.Telegram.WebApp
-    : null;
-}
-
-function getMonetagAdFunction() {
-  if (
-    !CONFIG.monetagSdkFunctionName ||
-    CONFIG.monetagSdkFunctionName === "YOUR_MONETAG_FUNCTION"
-  ) {
-    return null;
-  }
-
-  const sdkFunction = window[CONFIG.monetagSdkFunctionName];
-  return typeof sdkFunction === "function" ? sdkFunction : null;
-}
-
-function createAdEventId(adNumber) {
-  const destination = sessionStorage.getItem(STORAGE_KEYS.destination) || "";
-  const encodedDestination = encodeUrlSafeBase64(destination).slice(0, 18);
-  const randomValue = Math.random().toString(36).slice(2, 10);
-
-  return `${CONFIG.requestVarPrefix}_${adNumber}_${encodedDestination}_${Date.now()}_${randomValue}`;
-}
-
-function wait(milliseconds) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
-}
+/* =========================================================
+   URL VALIDATION
+========================================================= */
 
 function validateHttpUrl(value) {
   try {
     const url = new URL(value);
 
+    /*
+      Only HTTP / HTTPS
+    */
+
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return {
         valid: false,
-        message: "Please enter a valid HTTP or HTTPS URL.",
+
+        message: "Only HTTP and HTTPS URLs are allowed.",
       };
     }
 
     return {
       valid: true,
+
       url: url.href,
     };
-  } catch (error) {
+  } catch {
     return {
       valid: false,
-      message: "Please enter a valid HTTP or HTTPS URL.",
+
+      message: "Please enter a valid URL.",
     };
   }
 }
 
+/* =========================================================
+   BASE64 ENCODING
+========================================================= */
+
 function encodeUrlSafeBase64(value) {
   const bytes = new TextEncoder().encode(value);
+
   let binary = "";
 
-  bytes.forEach((byte) => {
+  for (const byte of bytes) {
     binary += String.fromCharCode(byte);
-  });
+  }
 
   return btoa(binary)
     .replace(/\+/g, "-")
+
     .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+
+    .replace(/=+$/, "");
 }
+
+/* =========================================================
+   BASE64 DECODING
+========================================================= */
 
 function decodeUrlSafeBase64(value) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const paddingLength = (4 - (normalized.length % 4)) % 4;
-  const padded = normalized + "=".repeat(paddingLength);
+
+  const padding = (4 - (normalized.length % 4)) % 4;
+
+  const padded = normalized + "=".repeat(padding);
+
   const binary = atob(padded);
+
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
 
   return new TextDecoder().decode(bytes);
 }
 
+/* =========================================================
+   CREATE TELEGRAM LINK
+========================================================= */
+
 function createTelegramLink(encodedDestination) {
-  return `https://t.me/${CONFIG.botUsername}?startapp=${encodedDestination}`;
+  return (
+    "https://t.me/" + CONFIG.botUsername + "?startapp=" + encodedDestination
+  );
 }
+
+/* =========================================================
+   COPY TEXT
+========================================================= */
 
 async function copyText(value) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(value);
+
     return;
   }
 
   elements.generatedLink.focus();
+
   elements.generatedLink.select();
 
-  if (!document.execCommand("copy")) {
-    throw new Error("Copy command failed");
+  const success = document.execCommand("copy");
+
+  if (!success) {
+    throw new Error("Copy failed.");
   }
 }
 
-function showView(viewName) {
-  elements.generatorView.hidden = viewName !== "generator";
-  elements.visitorView.hidden = viewName !== "visitor";
-  elements.invalidView.hidden = viewName !== "invalid";
+/* =========================================================
+   VIEW
+========================================================= */
+
+function showView(view) {
+  elements.generatorView.hidden = view !== "generator";
+
+  elements.visitorView.hidden = view !== "visitor";
+
+  elements.invalidView.hidden = view !== "invalid";
 }
 
-function setMessage(element, text, type) {
+/* =========================================================
+   VISITOR STATE
+========================================================= */
+
+function setVisitorState(state) {
+  /*
+    READY
+  */
+
+  if (state === "ready") {
+    elements.visitorTitle.textContent = "Ready to continue";
+
+    elements.visitorSubtitle.textContent =
+      "Watch the advertisement to unlock the content.";
+
+    elements.retryAdButton.hidden = false;
+
+    elements.retryAdButton.disabled = false;
+
+    elements.retryAdButton.textContent = "Continue & Watch Ad";
+
+    return;
+  }
+
+  /*
+    LOADING
+  */
+
+  if (state === "loading") {
+    elements.visitorTitle.textContent = "Advertisement loading...";
+
+    elements.visitorSubtitle.textContent = "Please wait.";
+
+    elements.retryAdButton.hidden = true;
+
+    return;
+  }
+
+  /*
+    COMPLETED
+  */
+
+  if (state === "completed") {
+    elements.visitorTitle.textContent = "Advertisement completed";
+
+    elements.visitorSubtitle.textContent = "Opening your content...";
+
+    elements.retryAdButton.hidden = true;
+
+    return;
+  }
+
+  /*
+    ERROR
+  */
+
+  if (state === "error") {
+    elements.visitorTitle.textContent = "Advertisement unavailable";
+
+    elements.visitorSubtitle.textContent = "Please try again.";
+
+    elements.retryAdButton.hidden = false;
+
+    elements.retryAdButton.disabled = false;
+
+    elements.retryAdButton.textContent = "Try Again";
+
+    return;
+  }
+}
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+function showMessage(element, text, type = "") {
   element.textContent = text;
+
   element.classList.remove("success", "error");
 
   if (type) {
@@ -453,30 +789,28 @@ function setMessage(element, text, type) {
   }
 }
 
-function setVisitorState(state) {
-  elements.retryAdButton.hidden = state !== "error";
-  elements.retryAdButton.disabled = state !== "error";
-
-  if (state === "completed") {
-    elements.visitorTitle.textContent = "Ad completed.";
-    elements.visitorSubtitle.textContent = "Opening content...";
-    return;
-  }
-
-  if (state === "error") {
-    elements.visitorTitle.textContent = "Unable to load the advertisement.";
-    elements.visitorSubtitle.textContent = "Please try again.";
-    return;
-  }
-
-  elements.visitorTitle.textContent = "Preparing your content...";
-  elements.visitorSubtitle.textContent = "Advertisement loading...";
+function clearMessage(element) {
+  showMessage(element, "");
 }
 
-function isConfiguredBotUsername(username) {
+/* =========================================================
+   BOT USERNAME VALIDATION
+========================================================= */
+
+function isValidBotUsername(username) {
   return Boolean(
     username &&
     username !== "YOUR_BOT_USERNAME" &&
     /^[A-Za-z0-9_]{5,32}$/.test(username),
   );
+}
+
+/* =========================================================
+   WAIT
+========================================================= */
+
+function wait(milliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 }
