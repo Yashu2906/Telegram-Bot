@@ -70,6 +70,8 @@ const CONFIG = {
   monetagSdkFunctionName: "YOUR_MONETAG_FUNCTION",
   interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
+  interstitialPreloadTimeoutSeconds: 8,
+  delayBetweenAdsMs: 800,
   inAppInterstitialEnabled: false
 };
 ```
@@ -149,6 +151,8 @@ const CONFIG = {
   monetagSdkFunctionName: "show_123456",
   interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
+  interstitialPreloadTimeoutSeconds: 8,
+  delayBetweenAdsMs: 800,
   inAppInterstitialEnabled: false
 };
 ```
@@ -157,13 +161,14 @@ Use your real function name from Monetag. Do not use `show_123456` unless Moneta
 
 ## Monetag SDK Integration
 
-The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it requires two successful Monetag calls before redirecting. Each call gets a unique `ymid` and `requestVar`:
+The app calls the Monetag SDK automatically after a valid visitor link is detected. `interstitialAdCount: 2` means it requires two successful Monetag calls before redirecting. Each required ad is preloaded and then shown with a unique `ymid` and `requestVar`:
 
 ```js
 await showAd({
   type: "end",
   ymid: "unique-event-id",
-  requestVar: "ad_link_1"
+  requestVar: "ad_link_1",
+  catchIfNoFeed: true
 });
 ```
 

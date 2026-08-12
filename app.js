@@ -9,6 +9,8 @@ const CONFIG = {
   monetagSdkFunctionName: "show_11551467",
   interstitialAdCount: 2,
   requestVarPrefix: "ad_link",
+  interstitialPreloadTimeoutSeconds: 8,
+  delayBetweenAdsMs: 800,
   inAppInterstitialEnabled: false,
   inAppInterstitialSettings: {
     frequency: 1,
@@ -216,11 +218,11 @@ async function showMonetagAdAndRedirect() {
     elements.visitorSubtitle.textContent = "Advertisement loading...";
 
     for (let adNumber = 1; adNumber <= CONFIG.interstitialAdCount; adNumber += 1) {
-      await showAd({
-        type: "end",
-        ymid: createAdEventId(adNumber),
-        requestVar: `${CONFIG.requestVarPrefix}_${adNumber}`,
-      });
+      if (adNumber > 1) {
+        await wait(CONFIG.delayBetweenAdsMs);
+      }
+
+      await showRequiredInterstitial(showAd, adNumber);
     }
 
     setVisitorState("completed");
@@ -242,6 +244,30 @@ async function showMonetagAdAndRedirect() {
       "Unable to load the advertisement. Please try again.",
       "error",
     );
+  }
+}
+
+async function showRequiredInterstitial(showAd, adNumber) {
+  const adOptions = {
+    type: "end",
+    ymid: createAdEventId(adNumber),
+    requestVar: `${CONFIG.requestVarPrefix}_${adNumber}`,
+    catchIfNoFeed: true,
+  };
+
+  await preloadInterstitial(showAd, adOptions);
+  await showAd(adOptions);
+}
+
+async function preloadInterstitial(showAd, adOptions) {
+  try {
+    await showAd({
+      ...adOptions,
+      type: "preload",
+      timeout: CONFIG.interstitialPreloadTimeoutSeconds,
+    });
+  } catch (error) {
+    // If preloading fails, still try the real ad call. The final redirect remains blocked unless the ad call resolves.
   }
 }
 
@@ -339,6 +365,12 @@ function createAdEventId(adNumber) {
   const randomValue = Math.random().toString(36).slice(2, 10);
 
   return `${CONFIG.requestVarPrefix}_${adNumber}_${encodedDestination}_${Date.now()}_${randomValue}`;
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 }
 
 function validateHttpUrl(value) {
