@@ -213,12 +213,9 @@ async function showMonetagAdAndRedirect() {
 
   try {
     elements.retryAdButton.hidden = true;
+    elements.visitorSubtitle.textContent = "Advertisement loading...";
 
     for (let adNumber = 1; adNumber <= CONFIG.interstitialAdCount; adNumber += 1) {
-      elements.visitorSubtitle.textContent =
-        CONFIG.interstitialAdCount > 1
-          ? `Advertisement ${adNumber} of ${CONFIG.interstitialAdCount} loading...`
-          : "Advertisement loading...";
       await showAd({
         type: "end",
         ymid: createAdEventId(adNumber),
