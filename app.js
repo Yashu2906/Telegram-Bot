@@ -6,10 +6,10 @@
 
 const CONFIG = {
   /*
-    Telegram bot username.
+    Telegram Bot Username
 
     IMPORTANT:
-    Do NOT include @
+    Do NOT use @
 
     Correct:
     MyAd_Link_Bot
@@ -20,25 +20,26 @@ const CONFIG = {
 
   botUsername: "MyAd_Link_Bot",
 
-  /*
-    Monetag
-  */
+  /* =======================================================
+     MONETAG
+  ======================================================= */
 
   monetagEnabled: true,
 
   /*
-    This MUST match:
+    This MUST match the data-sdk value
+    in index.html.
+
+    index.html:
 
     data-sdk="show_11551467"
-
-    in index.html
   */
 
   monetagSdkFunctionName: "show_11551467",
 
   /*
-    Maximum time to wait for Monetag SDK
-    to create the show_11551467 function.
+    Maximum time to wait for Monetag
+    SDK to load.
   */
 
   monetagSdkTimeoutMs: 15000,
@@ -85,7 +86,7 @@ const elements = {
 };
 
 /* =========================================================
-   STATE
+   APPLICATION STATE
 ========================================================= */
 
 let adRunning = false;
@@ -105,12 +106,13 @@ function init() {
 
   const startParam = getStartParam();
 
-  console.log("[APP] startParam:", startParam);
+  console.log("[APP] Start parameter:", startParam);
 
   /*
     No start parameter
-    =
-    OWNER / GENERATOR MODE
+    ==================
+
+    Generator mode
   */
 
   if (!startParam) {
@@ -122,9 +124,10 @@ function init() {
   }
 
   /*
-    start parameter exists
-    =
-    VISITOR MODE
+    Start parameter exists
+    ======================
+
+    Visitor mode
   */
 
   console.log("[APP] Visitor mode");
@@ -169,24 +172,24 @@ function getTelegramWebApp() {
 }
 
 /* =========================================================
-   EVENTS
+   EVENT LISTENERS
 ========================================================= */
 
 function bindEvents() {
   /*
-    Generator
+    Generate link
   */
 
   elements.generatorForm.addEventListener("submit", handleGenerateLink);
 
   /*
-    Copy
+    Copy link
   */
 
   elements.copyButton.addEventListener("click", handleCopyLink);
 
   /*
-    Watch ad
+    Watch advertisement
   */
 
   elements.retryAdButton.addEventListener("click", handleAdButton);
@@ -203,11 +206,19 @@ function handleGenerateLink(event) {
 
   const input = elements.urlInput.value.trim();
 
+  /*
+    Empty URL
+  */
+
   if (!input) {
     showMessage(elements.generatorMessage, "Please enter a URL.", "error");
 
     return;
   }
+
+  /*
+    Validate URL
+  */
 
   const validation = validateHttpUrl(input);
 
@@ -217,10 +228,16 @@ function handleGenerateLink(event) {
     return;
   }
 
+  /*
+    Validate bot username
+  */
+
   if (!isValidBotUsername(CONFIG.botUsername)) {
     showMessage(
       elements.generatorMessage,
+
       "Please configure your Telegram bot username in app.js.",
+
       "error",
     );
 
@@ -228,9 +245,21 @@ function handleGenerateLink(event) {
   }
 
   try {
+    /*
+      Encode original URL
+    */
+
     const encodedDestination = encodeUrlSafeBase64(validation.url);
 
+    /*
+      Generate Telegram Mini App link
+    */
+
     const telegramLink = createTelegramLink(encodedDestination);
+
+    /*
+      Show generated link
+    */
 
     elements.generatedLink.value = telegramLink;
 
@@ -238,7 +267,9 @@ function handleGenerateLink(event) {
 
     showMessage(
       elements.generatorMessage,
+
       "Link generated successfully.",
+
       "success",
     );
 
@@ -248,14 +279,16 @@ function handleGenerateLink(event) {
 
     showMessage(
       elements.generatorMessage,
+
       "Could not generate the link.",
+
       "error",
     );
   }
 }
 
 /* =========================================================
-   COPY LINK
+   COPY GENERATED LINK
 ========================================================= */
 
 async function handleCopyLink() {
@@ -270,7 +303,9 @@ async function handleCopyLink() {
 
     showMessage(
       elements.generatorMessage,
+
       "Link copied successfully.",
+
       "success",
     );
   } catch (error) {
@@ -278,20 +313,22 @@ async function handleCopyLink() {
 
     showMessage(
       elements.generatorMessage,
+
       "Copy failed. Please copy the link manually.",
+
       "error",
     );
   }
 }
 
 /* =========================================================
-   VISITOR
+   VISITOR MODE
 ========================================================= */
 
 function handleVisitor(startParam) {
   try {
     /*
-      Decode destination
+      Decode destination URL
     */
 
     const destination = decodeUrlSafeBase64(startParam);
@@ -309,16 +346,24 @@ function handleVisitor(startParam) {
     }
 
     /*
-      Store destination
+      Store destination temporarily
     */
 
-    sessionStorage.setItem(STORAGE_KEYS.destination, validation.url);
+    sessionStorage.setItem(
+      STORAGE_KEYS.destination,
+
+      validation.url,
+    );
 
     /*
       Show visitor page
     */
 
     showView("visitor");
+
+    /*
+      Ready state
+    */
 
     setVisitorState("ready");
 
@@ -333,12 +378,12 @@ function handleVisitor(startParam) {
 }
 
 /* =========================================================
-   MONETAG BUTTON
+   MONETAG AD BUTTON
 ========================================================= */
 
 async function handleAdButton() {
   /*
-    Prevent double clicks
+    Prevent multiple clicks
   */
 
   if (adRunning) {
@@ -367,7 +412,7 @@ async function handleAdButton() {
     }
 
     /*
-      Check Monetag enabled
+      Check Monetag
     */
 
     if (!CONFIG.monetagEnabled) {
@@ -375,12 +420,16 @@ async function handleAdButton() {
     }
 
     /*
-      Wait for SDK
+      Wait for Monetag SDK
     */
 
     console.log("[MONETAG] Waiting for SDK...");
 
     const showAd = await waitForMonetag();
+
+    /*
+      SDK wasn't loaded
+    */
 
     if (!showAd) {
       throw new Error("Monetag SDK function was not found.");
@@ -389,7 +438,7 @@ async function handleAdButton() {
     console.log("[MONETAG] SDK ready:", CONFIG.monetagSdkFunctionName);
 
     /*
-      Unique event ID
+      Create unique event ID
     */
 
     const ymid = createYmid();
@@ -399,13 +448,7 @@ async function handleAdButton() {
     console.log("[MONETAG] ymid:", ymid);
 
     /*
-      START MONETAG AD
-
-      Monetag documentation:
-
-      show_XXX({
-        ymid: "..."
-      }).then(...)
+      SHOW MONETAG AD
     */
 
     await showAd({
@@ -415,11 +458,7 @@ async function handleAdButton() {
     });
 
     /*
-      IMPORTANT
-
-      If Promise resolves,
-      Monetag reports that the
-      Rewarded Interstitial completed.
+      Advertisement completed
     */
 
     console.log("[MONETAG] Advertisement completed.");
@@ -428,12 +467,14 @@ async function handleAdButton() {
 
     showMessage(
       elements.visitorMessage,
-      "Advertisement completed. Opening content...",
+
+      "Advertisement completed. Opening the group...",
+
       "success",
     );
 
     /*
-      Small UI transition.
+      Small delay for UI
     */
 
     await wait(500);
@@ -451,7 +492,7 @@ async function handleAdButton() {
     }
 
     /*
-      REDIRECT
+      Redirect
     */
 
     console.log("[REDIRECT]", finalValidation.url);
@@ -468,7 +509,9 @@ async function handleAdButton() {
 
     showMessage(
       elements.visitorMessage,
+
       "Advertisement could not be loaded. Please try again.",
+
       "error",
     );
   }
@@ -482,33 +525,37 @@ function waitForMonetag() {
   return new Promise((resolve) => {
     const startTime = Date.now();
 
-    const interval = window.setInterval(() => {
-      const functionName = CONFIG.monetagSdkFunctionName;
+    const interval = window.setInterval(
+      () => {
+        const functionName = CONFIG.monetagSdkFunctionName;
 
-      const sdkFunction = window[functionName];
+        const sdkFunction = window[functionName];
 
-      /*
+        /*
               SDK loaded
             */
 
-      if (typeof sdkFunction === "function") {
-        window.clearInterval(interval);
+        if (typeof sdkFunction === "function") {
+          window.clearInterval(interval);
 
-        resolve(sdkFunction);
+          resolve(sdkFunction);
 
-        return;
-      }
+          return;
+        }
 
-      /*
+        /*
               Timeout
             */
 
-      if (Date.now() - startTime >= CONFIG.monetagSdkTimeoutMs) {
-        window.clearInterval(interval);
+        if (Date.now() - startTime >= CONFIG.monetagSdkTimeoutMs) {
+          window.clearInterval(interval);
 
-        resolve(null);
-      }
-    }, 100);
+          resolve(null);
+        }
+      },
+
+      100,
+    );
   });
 }
 
@@ -531,15 +578,14 @@ function createYmid() {
 }
 
 /* =========================================================
-   TELEGRAM START PARAMETER
+   GET TELEGRAM START PARAMETER
 ========================================================= */
 
 function getStartParam() {
   const telegram = getTelegramWebApp();
 
   /*
-    Telegram's official
-    Mini App parameter
+    Telegram Mini App
   */
 
   if (telegram && telegram.initDataUnsafe) {
@@ -596,7 +642,7 @@ function validateHttpUrl(value) {
     const url = new URL(value);
 
     /*
-      Only HTTP / HTTPS
+      Only HTTP and HTTPS
     */
 
     if (url.protocol !== "http:" && url.protocol !== "https:") {
@@ -622,7 +668,7 @@ function validateHttpUrl(value) {
 }
 
 /* =========================================================
-   BASE64 ENCODING
+   URL-SAFE BASE64 ENCODING
 ========================================================= */
 
 function encodeUrlSafeBase64(value) {
@@ -643,11 +689,15 @@ function encodeUrlSafeBase64(value) {
 }
 
 /* =========================================================
-   BASE64 DECODING
+   URL-SAFE BASE64 DECODING
 ========================================================= */
 
 function decodeUrlSafeBase64(value) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const normalized = value
+
+    .replace(/-/g, "+")
+
+    .replace(/_/g, "/");
 
   const padding = (4 - (normalized.length % 4)) % 4;
 
@@ -655,7 +705,11 @@ function decodeUrlSafeBase64(value) {
 
   const binary = atob(padded);
 
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const bytes = Uint8Array.from(
+    binary,
+
+    (character) => character.charCodeAt(0),
+  );
 
   return new TextDecoder().decode(bytes);
 }
@@ -675,11 +729,19 @@ function createTelegramLink(encodedDestination) {
 ========================================================= */
 
 async function copyText(value) {
+  /*
+    Modern clipboard API
+  */
+
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(value);
 
     return;
   }
+
+  /*
+    Fallback
+  */
 
   elements.generatedLink.focus();
 
@@ -693,7 +755,7 @@ async function copyText(value) {
 }
 
 /* =========================================================
-   VIEW
+   SHOW VIEW
 ========================================================= */
 
 function showView(view) {
@@ -709,15 +771,24 @@ function showView(view) {
 ========================================================= */
 
 function setVisitorState(state) {
-  /*
-    READY
-  */
+  /* =======================================================
+     READY
+  ======================================================= */
 
   if (state === "ready") {
-    elements.visitorTitle.textContent = "Ready to continue";
+    elements.visitorTitle.textContent = "You're almost there!";
 
-    elements.visitorSubtitle.textContent =
-      "Watch the advertisement to unlock the content.";
+    /*
+      Highlighted message
+
+      We use HTML here because
+      the text contains a highlighted
+      <span>.
+    */
+
+    elements.visitorSubtitle.innerHTML =
+      '<span class="highlight-text">⚡ Watch a quick ad</span> ' +
+      "to access the group.";
 
     elements.retryAdButton.hidden = false;
 
@@ -728,42 +799,44 @@ function setVisitorState(state) {
     return;
   }
 
-  /*
-    LOADING
-  */
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
   if (state === "loading") {
     elements.visitorTitle.textContent = "Advertisement loading...";
 
-    elements.visitorSubtitle.textContent = "Please wait.";
+    elements.visitorSubtitle.textContent =
+      "Please wait while the advertisement loads.";
 
     elements.retryAdButton.hidden = true;
 
     return;
   }
 
-  /*
-    COMPLETED
-  */
+  /* =======================================================
+     COMPLETED
+  ======================================================= */
 
   if (state === "completed") {
     elements.visitorTitle.textContent = "Advertisement completed";
 
-    elements.visitorSubtitle.textContent = "Opening your content...";
+    elements.visitorSubtitle.textContent = "Opening your group...";
 
     elements.retryAdButton.hidden = true;
 
     return;
   }
 
-  /*
-    ERROR
-  */
+  /* =======================================================
+     ERROR
+  ======================================================= */
 
   if (state === "error") {
     elements.visitorTitle.textContent = "Advertisement unavailable";
 
-    elements.visitorSubtitle.textContent = "Please try again.";
+    elements.visitorSubtitle.textContent =
+      "Something went wrong. Please try again.";
 
     elements.retryAdButton.hidden = false;
 
@@ -776,7 +849,7 @@ function setVisitorState(state) {
 }
 
 /* =========================================================
-   MESSAGE
+   SHOW MESSAGE
 ========================================================= */
 
 function showMessage(element, text, type = "") {
@@ -788,6 +861,10 @@ function showMessage(element, text, type = "") {
     element.classList.add(type);
   }
 }
+
+/* =========================================================
+   CLEAR MESSAGE
+========================================================= */
 
 function clearMessage(element) {
   showMessage(element, "");
